@@ -9,15 +9,21 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.font as tkFont
 import tkinter.filedialog as tkFile
+import tkinter.messagebox as tkMsg
 
 import threading,time,sys,configparser,os
 
-from win10toast import ToastNotifier
+OkOrCancel = 1
+Question = 2
+RetryOrCancel = 3
+YesOrNo = 4
+INFO = 5
+ERROR = 6
+WARNING = 7
 
 TIME_SWITCH = True
 PWD = os.getcwd()
 INI_PATH = PWD+'\\配置.ini'
-ICON_PATH = '.\\drink_128.ico'
 TIME_MIN = '1'
 TIME_TIME = '30'
 TIME_TITLE = '饮水提醒'
@@ -27,20 +33,18 @@ SELECT = 'select'
 config = configparser.ConfigParser()
 
 def read_config():
-    global TIME_TIME,TIME_TITLE,TIME_MSG,ICON_PATH
+    global TIME_TIME,TIME_TITLE,TIME_MSG
     if os.path.exists(INI_PATH):
         config.read(INI_PATH)
         TIME_TIME = config[SELECT]['time']
         TIME_TITLE = config[SELECT]['title']
         TIME_MSG = config[SELECT]['msg']
-        ICON_PATH = config[SELECT]['icon']
 
 def save_config():
     if SELECT not in config.sections():config.add_section(SELECT)
     config.set(SELECT,'time',TIME_TIME)
     config.set(SELECT,'title',TIME_TITLE)
     config.set(SELECT,'msg',TIME_MSG)
-    config.set(SELECT,'icon',ICON_PATH)
     with open(INI_PATH,'w') as f:
         config.write(f)
 
@@ -100,44 +104,29 @@ class Toplevel1:
         self.Text1.insert('0.0',TIME_MSG)
 
         self.Button1 = tk.Button(top)
-        self.Button1.place(x=10, y=150, height=30, width=70)
+        self.Button1.place(x=10, y=150, height=30, width=100)
         self.Button1['activebackground']="#ececec"
         self.Button1['activeforeground']="#000000"
         self.Button1['disabledforeground']="#a3a3a3"
         self.Button1['foreground']="#000000"
         self.Button1['highlightbackground']="#d9d9d9"
         self.Button1['pady']="0"
-        self.Button1['text']='''循环开始'''
+        self.Button1['text']='''✅循环开始'''
 
         self.Button2 = tk.Button(top)
-        self.Button2.place(x=170, y=150, height=30, width=70)
+        self.Button2.place(x=140, y=150, height=30, width=100)
         self.Button2['activebackground']="#ececec"
         self.Button2['activeforeground']="#000000"
         self.Button2['disabledforeground']="#a3a3a3"
         self.Button2['foreground']="#000000"
         self.Button2['pady']="0"
-        self.Button2['text']='''循环结束'''
-
-        self.Button3 = tk.Button(top)
-        self.Button3.place(x=90, y=150, height=30, width=70)
-        self.Button3['activebackground']="#ececec"
-        self.Button3['activeforeground']="#000000"
-        self.Button3['disabledforeground']="#a3a3a3"
-        self.Button3['foreground']="#000000"
-        self.Button3['pady']="0"
-        self.Button3['text']='''选择图标'''
+        self.Button2['text']='''❎循环结束'''
 
         self.Label2 = tk.Label(top)
         self.Label2.place(x=5, y=180, height=25, width=240)
         self.Label2['font']=font
         self.Label2['justify']='left'
         self.Label2['text']="❗调试信息:等待....❗"
-
-        self.Label3 = tk.Label(top)
-        self.Label3.place(x=5, y=130, height=20, width=240)
-        self.Label3['font']=font
-        self.Label3['justify']='left'
-        self.Label3['text']="图标："+ICON_PATH
 
         self.button()
 
@@ -146,7 +135,6 @@ class Toplevel1:
     def button(self):
         self.Button1['command'] = self.start
         self.Button2['command'] = self.stop
-        self.Button3['command'] = self.getIcoPath
 
     def start(self):
         global TIME_SWITCH,TIME_MSG,TIME_TIME,TIME_TITLE
@@ -163,6 +151,8 @@ class Toplevel1:
         self.Button1['state']=tk.DISABLED
         self.Text1['state']=tk.DISABLED
         self.Text2['state']=tk.DISABLED
+
+        self.Spinbox1['state']=tk.DISABLED
         
         TIME_SWITCH = True
         TIME_MSG = msg
@@ -181,40 +171,37 @@ class Toplevel1:
             self.Button1['state']=tk.NORMAL
             self.Text1['state']=tk.NORMAL
             self.Text2['state']=tk.NORMAL
+            self.Spinbox1['state']=tk.NORMAL
             return
         self.Label2['text']="❗调试信息:还未开始循环❗"
-
-    def getIcoPath(self):
-        global ICON_PATH
-        # os.path.relpath(path, start)
-        path = tkFile.askopenfilename()
-        if PWD[:1] == path[:1]:path = os.path.relpath(path, PWD)
-        ICON_PATH = path
-        self.Label3['text']="图标："+path
         
 
 def loop_call(t:str,title:str,msg:str):
     s = int(t) * 60
-    toaster(f'{title}提醒','开始倒计时....')
+    messages(INFO,f'{title}提醒','开始倒计时....')
     start_time = time.time()
     while TIME_SWITCH:
         Date = time.strftime('%Y{y}%m{m}%d{d} %H{h}%M{f}%S{s}').format(y='年', m='月', d='日', h='时', f='分', s='秒')
         end_time = time.time()
         if TIME_SWITCH and end_time - start_time >= s:
-            toaster(title,f'{Date}：{msg}')
+            messages(INFO,title,f'{Date}：{msg}')
             start_time = time.time()
-            # print(f'[{Date}] 线程{threading.get_ident()}发送Message信息:{msg}')
-    # Date = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    # print(f'[{Date}] 线程{threading.get_ident()}结束')    
-    toaster(f'{title}提醒',f'{title}结束')
+        else:
+            time.sleep(1)
+    messages(INFO,f'{title}提醒',f'{title}结束')
     return
 
-def toaster(title,msg):
-    toaster = ToastNotifier()
-    toaster.show_toast(title,
-                   msg,
-                   icon_path=ICON_PATH,
-                   duration=5)
+def messages(level=INFO,title=None,msg=None):
+    msgLevel = {
+        1:tkMsg.askokcancel,
+        2:tkMsg.askquestion,
+        3:tkMsg.askretrycancel,
+        4:tkMsg.askyesno,
+        5:tkMsg.showinfo,
+        6:tkMsg.showerror,
+        7:tkMsg.showwarning
+    }
+    msgLevel[level](title=title,message=msg,parent=root)
 
 if __name__ == "__main__":
     root = tk.Tk()
